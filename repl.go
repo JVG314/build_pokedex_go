@@ -5,12 +5,21 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/JVG314/build_pokedex_go/internal/pokeapi"
 )
+
+type config struct {
+	Next     *string
+	Previous *string
+	Client   pokeapi.Client
+}
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(*config) error
 }
 
 // defined here so we can use it later inside commandHelp to iterate over it
@@ -26,13 +35,13 @@ func cleanInput(text string) []string {
 	return words
 }
 
-func commandExit() error {
+func commandExit(cfg *config) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp() error {
+func commandHelp(cfg *config) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println("")
@@ -42,7 +51,53 @@ func commandHelp() error {
 	return nil
 }
 
+func commandMap(cfg *config) error {
+	url := ""
+	if cfg.Next != nil {
+		url = *cfg.Next
+	}
+
+	res, err := cfg.Client.GetLocationAreas(url)
+	if err != nil {
+		return err
+	}
+
+	for _, location := range res.Results {
+		fmt.Println(location.Name)
+	}
+
+	cfg.Next = res.Next
+	cfg.Previous = res.Previous
+
+	return nil
+}
+
+func commandMapb(cfg *config) error {
+	url := ""
+	if cfg.Previous == nil {
+		fmt.Println("you're on the first page")
+		return nil
+	}
+	url = *cfg.Previous
+	res, err := cfg.Client.GetLocationAreas(url)
+	if err != nil {
+		return err
+	}
+
+	for _, location := range res.Results {
+		fmt.Println(location.Name)
+	}
+
+	cfg.Next = res.Next
+	cfg.Previous = res.Previous
+
+	return nil
+}
+
 func startRepl() {
+	cfg := &config{
+		Client: pokeapi.NewClient(10 * time.Second),
+	}
 	scanner := bufio.NewScanner(os.Stdin)
 	commands = map[string]cliCommand{
 		"exit": {
@@ -54,6 +109,16 @@ func startRepl() {
 			name:        "help",
 			description: "Displays a help message",
 			callback:    commandHelp,
+		},
+		"map": {
+			name:        "map",
+			description: "Explore the Pokemon world",
+			callback:    commandMap,
+		},
+		"mapb": {
+			name:        "mapb",
+			description: "Explore the Pokemon world backwards",
+			callback:    commandMapb,
 		},
 	}
 	for {
@@ -69,7 +134,7 @@ func startRepl() {
 		// fmt.Printf("Your command was: %s\n", cleaned[0])
 		command, exists := commands[cleaned[0]]
 		if exists {
-			err := command.callback()
+			err := command.callback(cfg)
 			if err != nil {
 				fmt.Println(err)
 			}
