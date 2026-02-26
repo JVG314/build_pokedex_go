@@ -2,7 +2,10 @@ package pokeapi
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -41,6 +44,11 @@ func (c *Client) GetLocationAreas(url string) (RespLocationAreas, error) {
 		return RespLocationAreas{}, err
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		body, _ := io.ReadAll(res.Body)
+		return RespLocationAreas{}, fmt.Errorf("pokeapi: %s: %v", res.Status, strings.TrimSpace(string(body)))
+	}
 
 	var respLA RespLocationAreas
 	decoder := json.NewDecoder(res.Body)
