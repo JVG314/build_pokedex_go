@@ -19,7 +19,7 @@ type config struct {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, []string) error
 }
 
 // defined here so we can use it later inside commandHelp to iterate over it
@@ -35,13 +35,13 @@ func cleanInput(text string) []string {
 	return words
 }
 
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, args []string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(cfg *config) error {
+func commandHelp(cfg *config, args []string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println("")
@@ -51,7 +51,7 @@ func commandHelp(cfg *config) error {
 	return nil
 }
 
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, args []string) error {
 	url := ""
 	if cfg.Next != nil {
 		url = *cfg.Next
@@ -72,7 +72,7 @@ func commandMap(cfg *config) error {
 	return nil
 }
 
-func commandMapb(cfg *config) error {
+func commandMapb(cfg *config, args []string) error {
 	url := ""
 	if cfg.Previous == nil {
 		fmt.Println("you're on the first page")
@@ -90,6 +90,27 @@ func commandMapb(cfg *config) error {
 
 	cfg.Next = res.Next
 	cfg.Previous = res.Previous
+
+	return nil
+}
+
+func commandExplore(cfg *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("you must provide a location area name")
+	}
+	name := args[0]
+	fmt.Printf("Exploring %s area...\n", name)
+	res, err := cfg.Client.GetLocationDetails(name)
+	if err != nil {
+		return err
+	}
+
+	for _, location := range res.PokemonEncounters {
+		fmt.Printf("- %s\n", location.Pokemon.Name)
+	}
+
+	// cfg.Next = res.Next
+	// cfg.Previous = res.Previous
 
 	return nil
 }
@@ -120,6 +141,11 @@ func startRepl() {
 			description: "Explore the Pokemon world backwards",
 			callback:    commandMapb,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Explore a particular location",
+			callback:    commandExplore,
+		},
 	}
 	for {
 		fmt.Print("Pokedex > ")
@@ -132,9 +158,11 @@ func startRepl() {
 			continue
 		}
 		// fmt.Printf("Your command was: %s\n", cleaned[0])
-		command, exists := commands[cleaned[0]]
+		commandName := cleaned[0]
+		args := cleaned[1:]
+		command, exists := commands[commandName]
 		if exists {
-			err := command.callback(cfg)
+			err := command.callback(cfg, args)
 			if err != nil {
 				fmt.Println(err)
 			}

@@ -25,6 +25,15 @@ type RespLocationAreas struct {
 	Results  []LocationArea `json:"results"`
 }
 
+type RespLocationAreaDetails struct {
+	Name              string `json:"name"`
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
+}
+
 type Client struct {
 	httpClient http.Client
 	cache      *pokecache.Cache
@@ -83,4 +92,48 @@ func (c *Client) GetLocationAreas(url string) (RespLocationAreas, error) {
 	}
 
 	return respLA, nil
+}
+
+func (c *Client) GetLocationDetails(name string) (RespLocationAreaDetails, error) {
+	url := baseURL + "/location-area/" + name
+
+	// Try cache first
+	if cacheData, ok := c.cache.Get(url); ok {
+		fmt.Printf("URL %s in cache\n", url)
+		var respLAD RespLocationAreaDetails
+		if err := json.Unmarshal(cacheData, &respLAD); err != nil {
+			return RespLocationAreaDetails{}, err
+		}
+		return respLAD, nil
+	}
+
+	// If not cached, do HTTP request
+	fmt.Printf("URL %s not in cache, making HTTP request...\n", url)
+	res, err := c.httpClient.Get(url)
+	if err != nil {
+		return RespLocationAreaDetails{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		body, _ := io.ReadAll(res.Body)
+		return RespLocationAreaDetails{}, fmt.Errorf("pokeapi: %s: %v", res.Status, strings.TrimSpace(string(body)))
+	}
+
+	// Read full body to cache it
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return RespLocationAreaDetails{}, err
+	}
+
+	// Save to cache
+	c.cache.Add(url, body)
+
+	// Unmarshal and return
+	var respLAD RespLocationAreaDetails
+	if err := json.Unmarshal(body, &respLAD); err != nil {
+		return RespLocationAreaDetails{}, err
+	}
+
+	return respLAD, nil
 }
