@@ -25,6 +25,11 @@ type RespLocationAreas struct {
 	Results  []LocationArea `json:"results"`
 }
 
+type Pokemon struct {
+	Name           string `json:"name"`
+	BaseExperience int    `json:"base_experience"`
+}
+
 type RespLocationAreaDetails struct {
 	Name              string `json:"name"`
 	PokemonEncounters []struct {
@@ -136,4 +141,30 @@ func (c *Client) GetLocationDetails(name string) (RespLocationAreaDetails, error
 	}
 
 	return respLAD, nil
+}
+
+func (c *Client) GetPokemon(name string) (Pokemon, error) {
+	url := baseURL + "/pokemon/" + name
+	res, err := c.httpClient.Get(url)
+	if err != nil {
+		return Pokemon{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		body, _ := io.ReadAll(res.Body)
+		return Pokemon{}, fmt.Errorf("pokeapi: %s: %v", res.Status, strings.TrimSpace(string(body)))
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return Pokemon{}, err
+	}
+
+	var respPokemon Pokemon
+	if err := json.Unmarshal(body, &respPokemon); err != nil {
+		return Pokemon{}, err
+	}
+
+	return respPokemon, nil
 }

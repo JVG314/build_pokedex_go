@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -11,9 +12,11 @@ import (
 )
 
 type config struct {
-	Next     *string
-	Previous *string
-	Client   *pokeapi.Client
+	Next             *string
+	Previous         *string
+	Client           *pokeapi.Client
+	CatchDifficultyK float64
+	CaughtPokemons   map[string]pokeapi.Pokemon
 }
 
 type cliCommand struct {
@@ -115,9 +118,34 @@ func commandExplore(cfg *config, args []string) error {
 	return nil
 }
 
+func commandCatch(cfg *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("you must provide a Pokemon name to catch")
+	}
+	name := args[0]
+	fmt.Printf("Throwing a Pokeball at %s...\n", name)
+	res, err := cfg.Client.GetPokemon(name)
+	if err != nil {
+		return err
+	}
+	// give the user a chance to catch the Pokemon using math/rand.
+	// Use the pokemon "base experience" to determine the chance of cathing it. The higher the base exp, the harder it should be to catch it
+
+	chance := cfg.CatchDifficultyK / (cfg.CatchDifficultyK + float64(res.BaseExperience))
+	if rand.Float64() < chance {
+		fmt.Printf("%s was caught!\n", name)
+		cfg.CaughtPokemons[name] = res
+	} else {
+		fmt.Printf("%s escaped!\n", name)
+	}
+	return nil
+}
+
 func startRepl() {
 	cfg := &config{
-		Client: pokeapi.NewClient(10 * time.Second),
+		Client:           pokeapi.NewClient(10 * time.Second),
+		CatchDifficultyK: 150,
+		CaughtPokemons:   make(map[string]pokeapi.Pokemon),
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	commands = map[string]cliCommand{
@@ -146,6 +174,11 @@ func startRepl() {
 			description: "Explore a particular location",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "Attempt to catch a Pokemon with a Pokeball",
+			callback:    commandCatch,
+		},
 	}
 	for {
 		fmt.Print("Pokedex > ")
@@ -172,3 +205,4 @@ func startRepl() {
 
 	}
 }
+
