@@ -132,12 +132,39 @@ func commandCatch(cfg *config, args []string) error {
 	// Use the pokemon "base experience" to determine the chance of cathing it. The higher the base exp, the harder it should be to catch it
 
 	chance := cfg.CatchDifficultyK / (cfg.CatchDifficultyK + float64(res.BaseExperience))
+	fmt.Printf("catch chance: %.2f%%\n", chance*100)
 	if rand.Float64() < chance {
 		fmt.Printf("%s was caught!\n", name)
 		cfg.CaughtPokemons[name] = res
 	} else {
 		fmt.Printf("%s escaped!\n", name)
 	}
+	return nil
+}
+
+func commandInspect(cfg *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("you must provide a Pokemon name to inspect")
+	}
+	name := args[0]
+	pokemon, ok := cfg.CaughtPokemons[name]
+	if !ok {
+		fmt.Println("you have not chaught that pokemon")
+		return nil
+	}
+
+	fmt.Printf("Name: %s\n", pokemon.Name)
+	fmt.Printf("Height: %d\n", pokemon.Height)
+	fmt.Printf("Weight: %d\n", pokemon.Weight)
+	fmt.Println("Stats:")
+	for _, v := range pokemon.Stats {
+		fmt.Printf("  -%s: %d\n", v.Stat.Name, v.BaseStat)
+	}
+	fmt.Println("Types:")
+	for _, v := range pokemon.Types {
+		fmt.Printf("  - %s\n", v.Type.Name)
+	}
+
 	return nil
 }
 
@@ -178,6 +205,11 @@ func startRepl() {
 			name:        "catch",
 			description: "Attempt to catch a Pokemon with a Pokeball",
 			callback:    commandCatch,
+		},
+		"inspect": {
+			name:        "inspect",
+			description: "Inspect the stats of a Pokemon caught in the Pokedex",
+			callback:    commandInspect,
 		},
 	}
 	for {
