@@ -168,6 +168,18 @@ func commandInspect(cfg *config, args []string) error {
 	return nil
 }
 
+func commandPokedex(cfg *config, args []string) error {
+	fmt.Println("Your pokedex:")
+	if len(cfg.CaughtPokemons) == 0 {
+		fmt.Println("You have not caught any pokemon yet")
+	}
+	for _, pokemon := range cfg.CaughtPokemons {
+		fmt.Printf("  - %s\n", pokemon.Name)
+	}
+
+	return nil
+}
+
 func startRepl() {
 	cfg := &config{
 		Client:           pokeapi.NewClient(10 * time.Second),
@@ -210,6 +222,11 @@ func startRepl() {
 			name:        "inspect",
 			description: "Inspect the stats of a Pokemon caught in the Pokedex",
 			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "Lists the pokemons you have caught in your Pokedex",
+			callback:    commandPokedex,
 		},
 	}
 	for {
